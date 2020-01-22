@@ -1,37 +1,105 @@
 import React from 'react'
-// import * as BooksAPI from './BooksAPI'
+import * as BooksAPI from './middleware/api'
 import './App.css'
-import { ListBooks, SearchBooks } from './components'
+import { Link, Route } from 'react-router-dom';
+
+import {
+  Bookshelf,
+  SearchPage,
+} from './components';
 
 class BooksApp extends React.Component {
   state = {
-    /**
-     * TODO: Instead of using this state variable to keep track of which page
-     * we're on, use the URL in the browser's address bar. This will ensure that
-     * users can use the browser's back and forward buttons to navigate between
-     * pages, as well as provide a good URL they can bookmark and share.
-     */
-    showSearchPage: false
+    books: [],
+    query: '',
+    result: []
   }
 
-  goToMain = () => {
-    this.setState({ showSearchPage: false })
+  componentDidMount() {
+    BooksAPI.getAll().then((books) => {
+      this.setState({ books });
+    })
   }
 
-  goToSearch = () => {
-    this.setState({ showSearchPage: true })
+  filterByShelf = (shelf) => {
+    const { books } = this.state
+    return books.filter((book) => book.shelf === shelf)
+  }
+
+  onQuery = (query) => {
+    if (query) {
+      this.setState({ query });
+      this.searchByTitleOrAuthor(query);
+    } else {
+      this.setState({ result: [], query: '' });
+    }
+  }
+
+  onUpdate = (book, shelf) => {
+    BooksAPI.update(book, shelf).then((books) => {
+      book.shelf = shelf;
+      this.setState((state) => ({
+        books: state.books.filter(b => b.id !== book.id).concat([book])
+      }))
+    })
   }
 
   render() {
     return (
-      <div className="app">
-        {this.state.showSearchPage ? (
-          <SearchBooks onClick={ () => this.goToMain() } />
-        ) : (
-          <ListBooks onClick={ () => this.goToSearch() } />
-        )}
-      </div>
+        <div className="app">
+          <Route exact path="/" render={() => (
+              <div className="list-books">
+                <div className="list-books-title">
+                  <h1>MyReads</h1>
+                </div>
+                <div className="list-books-content">
+                  <div>
+                    <Bookshelf
+                        shelf="currentlyReading"
+                        title="Currently Reading"
+                        books={this.state.books}
+                        onUpdate={this.onUpdate}
+                    />
+
+                    <Bookshelf
+                        shelf="wantToRead"
+                        title="Want to Read"
+                        books={this.state.books}
+                        onUpdate={this.onUpdate}
+                    />
+
+                    <Bookshelf
+                        shelf="read"
+                        title="Read"
+                        books={this.state.books}
+                        onUpdate={this.onUpdate}
+                    />
+                  </div>
+                </div>
+                <div className="open-search">
+                  <Link to='/search'>
+                    Add a book
+                  </Link>
+                </div>
+              </div>
+          )}/>
+          <Route exact path="/search" render={() => (
+              <SearchPage
+                  books={this.state.books}
+                  result={this.state.result}
+                  onSearch={this.onQuery}
+                  onUpdate={this.onUpdate}
+                  query={this.state.query}
+              />
+          )}/>
+        </div>
     )
+  }
+
+  searchByTitleOrAuthor = (query) => {
+    BooksAPI.search(query).then((books) => {
+      this.setState({ result: books });
+    })
   }
 }
 
